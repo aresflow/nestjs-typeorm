@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
-import { BeforeInsert, BeforeUpdate, Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { ProductImage } from './product-image.entity';
 
 @Entity()
 export class Product {
@@ -35,6 +36,12 @@ export class Product {
     default: [],
   })
   tags: string[];
+
+  //UN PRODUCTO PUEDE TENER MUCHAS IMAGENES
+  @OneToMany(() => ProductImage, (productImage) => productImage.product, {
+    cascade: true, eager: true,  //EAGER: CARGA LA RELACION DE UNA VEZ (POR DEFECTO ES LAZY) Y PODEMOS CARGAR LAS IMAGENES CUANDO CARGAMOS EL PRODUCTO
+  })
+  images?: ProductImage[];
 
   @BeforeInsert()
   checkSlugInsert() {
