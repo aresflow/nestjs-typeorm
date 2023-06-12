@@ -12,5 +12,9 @@ import { Product, ProductImage } from './entities';
   imports: [
     TypeOrmModule.forFeature([Product, ProductImage]) 
   ],
+  exports: [
+    ProductsService,  //LO EXPORTAMOS PARA QUE CUALQUIERA QUE IMPORTE PRODUCTSMODULE PUEDA UTILIZA EL PRODUCTSSERVICE Y POR EJEMPLO ELIMINAR COSAS, COMO EN EL CASO DEL SEED.SERVICE
+    TypeOrmModule
+  ]
 })
 export class ProductsModule {}

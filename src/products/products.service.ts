@@ -149,5 +149,18 @@ export class ProductsService {
 
     this.logger.error(error.message);
     throw new InternalServerErrorException('Unexpected error, check server logs');
-  } 
+  }
+
+  async deleteAllProducts() { //BORRA TODOS LOS PRODUCTOS DE LA BASE DE DATOS USADOS CON LA CREACION DE LA SEMILLA (SOLO PARA TEST)
+    const query = this.productRepository.createQueryBuilder('product');
+
+    try {
+      return await query
+        .delete()
+        .where({})
+        .execute();
+    } catch (error) {
+      this.handleException(error);
+    }
+  }
 }
