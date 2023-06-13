@@ -3,6 +3,8 @@ import { Controller, Post, UploadedFile, UseInterceptors, BadRequestException } 
 import { FilesService } from './files.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { fileFilter } from './helpers/fileFilter.helper';
+import { diskStorage } from 'multer';
+import { fileNamer } from './helpers/fileNamer.helper';
 
 @Controller('files')
 export class FilesController {
@@ -10,7 +12,12 @@ export class FilesController {
 
   @Post('product')
   @UseInterceptors(FileInterceptor('file', { //FILE ES EL NOMBRE DEL CAMPO QUE SE VA A SUBIR, EN POSTMAN POR EJEMPLO LE MANDO FILE EN EL BODY DEL FORM-DATA
-    fileFilter: fileFilter
+    fileFilter: fileFilter,
+    // limits: { fileSize: 1000 },
+    storage: diskStorage({
+      destination: './static/products', //ACA SE GUARDAN LOS ARCHIVOS QUE SE SUBEN
+      filename: fileNamer //ACA SE LE DA EL NOMBRE AL ARCHIVO
+    })
   })) 
   uploadProductImage(
     @UploadedFile() file: Express.Multer.File
