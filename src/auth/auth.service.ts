@@ -7,6 +7,8 @@ import { User } from './entities/user.entity';
 
 import * as bcrypt from 'bcrypt';
 import { LoginUserDto } from './dto/login-user.dto';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
@@ -14,6 +16,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
+    private readonly jwtService: JwtService, //ESTO VIENE DEL JWTMODULE EXPORTADO EN EL AUTH.MODULE.TS
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -29,7 +33,10 @@ export class AuthService {
       await this.userRepository.save(user);
       delete user.password;
 
-      return user;
+      return {
+        ...user,
+        token: this.getJtwToken({ email: user.email })
+      };
 
     } catch (error) {
       this.handleDBErrors(error);
@@ -51,7 +58,15 @@ export class AuthService {
       if (!bcrypt.compareSync(password, user.password)) { //COMPARA LA PASSWORD QUE INGRESA EL USER CON LA QUE ESTA EN LA BASE DE DATOS
         throw new UnauthorizedException('Invalid credentials (password)');
       }
-      return user;
+      return {
+        ...user,
+        token: this.getJtwToken({ email: user.email })
+      };
+  }
+
+  private getJtwToken( payload: JwtPayload ) {
+    const token = this.jwtService.sign(payload);
+    return token;
   }
 
   private handleDBErrors( error: any) {
