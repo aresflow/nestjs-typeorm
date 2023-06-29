@@ -10,6 +10,7 @@ import { RawHeaders } from './decorators/raw-headers.decorator';
 import { UserRoleGuard } from './guards/user-role/user-role.guard';
 import { RoleProtected } from './decorators/role-protected/role-protected.decorator';
 import { ValidRoles } from './interfaces/valid-roles';
+import { Auth } from './decorators/auth.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -23,6 +24,14 @@ export class AuthController {
   @Post('login')
   loginUser(@Body() loginUserDto: LoginUserDto) {
     return this.authService.login(loginUserDto);
+  }
+
+  @Get('check-auth-status')
+  @Auth()
+  checkAuthStatus(
+    @GetUser() user: User,
+  ) {
+    return this.authService.checkAuthStatus(user);
   }
 
   @Get('private')
@@ -47,6 +56,17 @@ export class AuthController {
   @RoleProtected(ValidRoles.admin, ValidRoles.superUser) //ESTE DECORADOR SE ENCARGA DE LLAMAR Y VERIFICAR EL ROLE DEL USER
   @UseGuards(AuthGuard(), UserRoleGuard)
   privateRoute2(@GetUser() user: User) {
+    return {
+      ok: true,
+      user,
+    };
+  }
+
+  //DE ESTA FORMA HACEMOS LO MISMO QUE EN PRIVATE2 PERO DE UNA MANERA MUCHO MAS SENCILLA Y REUTILIZABLE
+  //CREANDO EL AUTH.DECORATOR.TS 
+  @Get('private3')
+  @Auth(ValidRoles.admin)
+  privateRoute3(@GetUser() user: User) {
     return {
       ok: true,
       user,
