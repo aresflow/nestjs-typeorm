@@ -1,47 +1,63 @@
-/* eslint-disable prettier/prettier */
+import { JwtService } from '@nestjs/jwt';
 import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { MessagesWsService } from './messages-ws.service';
-import { Socket as socketIo } from 'socket.io-client';
 import { Server, Socket } from 'socket.io';
+
 import { NewMessageDto } from './dtos/new-message.dto';
+import { MessagesWsService } from './messages-ws.service';
+import { JwtPayload } from 'src/auth/interfaces/jwt-payload.interface';
 
 @WebSocketGateway({ cors: true })
 export class MessagesWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   
-  @WebSocketServer() wss: Server; //ESTA VARIABLE NOS PERMITE ACCEDER AL SERVIDOR DE WEBSOCKETS
+  @WebSocketServer() wss: Server;
 
   constructor(
-    private readonly messagesWsService: MessagesWsService
+    private readonly messagesWsService: MessagesWsService,
+    private readonly jwtService: JwtService
   ) {}
 
-  handleConnection(client: socketIo) { //CUANDO SE CONECTA UN CLIENTE EJECTUAMOS ESTA FUNCION
+  async handleConnection( client: Socket ) { // Cuando un cliente se conecta al servidor se ejecuta este método 
     const token = client.handshake.headers.authentication as string;
-    this.messagesWsService.registerClient(client);
+    let payload: JwtPayload;
 
-    this.wss.emit('clients-updated', this.messagesWsService.getConnectedClients()); //EMITIMOS UN EVENTO A TODOS LOS CLIENTES CONECTADOS Y LES INFORMA QUE SE HAN CONECTADO CLIENTES NUEVOS
+    try {
+      payload = this.jwtService.verify( token ); // Verificamos el token del cliente conectado al servidor 
+      this.messagesWsService.registerClient(client, payload.id); // Registramos el cliente en la lista de clientes conectados
+
+    } catch (error) {
+      client.disconnect();
+      return;
+    }
+    this.wss.emit('clients-updated', this.messagesWsService.getConnectedClients() ); // Emitimos a todos los clientes conectados la lista de clientes conectados
   }
 
-  handleDisconnect(client: Socket) { //CUANDO SE DESCONECTA UN CLIENTE EJECTUAMOS ESTA FUNCION
-    this.messagesWsService.removeClient(client.id);
-    this.wss.emit('clients-updated', this.messagesWsService.getConnectedClients());
+  handleDisconnect( client: Socket ) {
+    // console.log('Cliente desconectado', client.id )
+    this.messagesWsService.removeClient( client.id ); // Eliminamos el cliente de la lista de clientes conectados
+    this.wss.emit('clients-updated', this.messagesWsService.getConnectedClients() );
   }
 
-  @SubscribeMessage('message-from-client') //ESTE ES EL EVENTO QUE RECIBIMOS DEL CLIENTE CUANDO MANDA UN MENSAJE
-  handleMessageFromClient(client: Socket, payload: NewMessageDto) {
+  @SubscribeMessage('message-from-client') 
+  onMessageFromClient( client: Socket, payload: NewMessageDto ) { 
+  
+    //! Emite únicamente al cliente.
+    // client.emit('message-from-server', {
+    //   fullName: 'Soy Yo!',
+    //   message: payload.message || 'no-message!!'
+    // });
 
-    //CON ESTO ENVIAMOS EL MENSAJE UNICAMENTE AL CLIENTE QUE LO ENVIO
-    // client.emit('message-from-server', payload); 
-    
-    //PARA EMITIR A TODOS LOS CLIENTES, MENOS AL CLIENTE QUE LO ENVIO
-    client.broadcast.emit('message-from-server', {
-      fullName: 'soy yo',
-      message: payload.message || 'no-message'
+    //! Emitir a todos MENOS, al cliente inicial
+    // client.broadcast.emit('message-from-server', {
+    //   fullName: 'Soy Yo!',
+    //   message: payload.message || 'no-message!!'
+    // });
+
+    this.wss.emit('message-from-server', { // Emite a todos los clientes
+      fullName: this.messagesWsService.getUserFullName(client.id), // Obtenemos el nombre del usuario
+      message: payload.message || 'no-message!!' // Obtenemos el mensaje
     });
 
-    //PARA EMITIR A TODOS LOS CLIENTES EL MISMO MENSAJE QUE ENVIO UNO DE ELLOS
-    this.wss.emit('message-from-server', {
-      fullName: 'soy yo',
-      message: payload.message || 'no-message'
-    });
   }
+
+
 }

@@ -1,26 +1,67 @@
-/* eslint-disable prettier/prettier */
 import { Injectable } from '@nestjs/common';
-import { Socket } from 'socket.io-client';
+import { InjectRepository } from '@nestjs/typeorm';
 
-interface ConnectedClients {
-    [id: string]: Socket
+import { Socket } from 'socket.io';
+import { User } from '../auth/entities/user.entity';
+import { Repository } from 'typeorm';
+
+interface ConnectedClients { 
+    [id: string]: { 
+        socket: Socket, 
+        user: User
+    }
 }
-
 
 @Injectable()
 export class MessagesWsService {
+    
+    private connectedClients: ConnectedClients = {}
 
-    private connectedClients: ConnectedClients = {};
+    constructor(
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>
+    ) {}
 
-    registerClient(client: Socket) { //CUANDO SE CONECTA UN CLIENTE EJECTUAMOS ESTA FUNCION
-        this.connectedClients[client.id] = client;
+
+    async registerClient( client: Socket, userId: string ) { 
+
+        const user = await this.userRepository.findOneBy({ id: userId }); // Buscamos el usuario en la base de datos 
+        if ( !user ) throw new Error('User not found'); // Si no existe el usuario lanzamos un error
+        if ( !user.isActive ) throw new Error('User not active');
+
+        this.checkUserConnection( user ); 
+
+        this.connectedClients[client.id] = { // Guardamos el cliente conectado
+            socket: client,
+            user: user,
+        };
     }
 
-    removeClient(clientId: string) { //CUANDO SE DESCONECTA UN CLIENTE EJECTUAMOS ESTA FUNCION
+    removeClient( clientId: string ) {
         delete this.connectedClients[clientId];
     }
 
+
     getConnectedClients(): string[] {
-        return Object.keys(this.connectedClients);
+        return Object.keys( this.connectedClients );
     }
+
+
+    getUserFullName( socketId: string ) { 
+        return this.connectedClients[socketId].user.fullName;
+    }
+
+
+    private checkUserConnection( user: User ) { // Para que no se conecte el mismo usuario en dos dispositivos
+        for (const clientId of Object.keys( this.connectedClients ) ) {
+            const connectedClient = this.connectedClients[clientId]; // Obtenemos el cliente conectado
+
+            if ( connectedClient.user.id === user.id ){ // Si el usuario ya está conectado en otro dispositivo lo desconectamos
+                connectedClient.socket.disconnect();
+                break;
+            }
+        }
+
+    }
+
 }
